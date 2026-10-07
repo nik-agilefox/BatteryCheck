@@ -28,9 +28,9 @@ $text = [regex]::Replace($text, 'public const string Version = "[^"]*";', "publi
 
 # 2. Тесты и сборка (запущенная программа держит свой exe — закрыть её)
 if (Test-Path "bin\BatteryCheckGui.exe") { Start-Process "bin\BatteryCheckGui.exe" -ArgumentList "--exit" -Wait; Start-Sleep 2 }
-& cmd /c test.cmd
+& (Join-Path $root "test.cmd")
 if ($LASTEXITCODE -ne 0) { throw "Tests failed" }
-& cmd /c build.cmd
+& (Join-Path $root "build.cmd")
 if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 
 # 3. Файлы релиза: архив для обновления изнутри программы и установщик для нового компьютера
