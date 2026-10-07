@@ -14,7 +14,7 @@ namespace BatteryCheck
     /// <summary>Версия программы и откуда брать обновления. Версию поднимает tools\release.ps1 перед выпуском.</summary>
     static class AppInfo
     {
-        public const string Version = "1.0.0";
+        public const string Version = "1.1.0";
         public const string Repo = "nik-agilefox/BatteryCheck";
 
         /// <summary>Имя архива с программой в релизе: его скачивает обновление.</summary>
