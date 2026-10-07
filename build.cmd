@@ -24,6 +24,16 @@ rem Icon: src\Gui\app.ico (regenerate with tools\make-icon.cmd)
 "%CSC%" %COMMON% %CORE% /target:winexe /out:bin\BatteryCheckGui.exe /win32manifest:src\Gui\app.manifest /win32icon:src\Gui\app.ico ^
     /lib:"%FW%\WPF" /r:PresentationCore.dll /r:PresentationFramework.dll /r:WindowsBase.dll /r:System.Xaml.dll ^
     /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll ^
+    /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll ^
     src\Core\*.cs src\Gui\*.cs
 if errorlevel 1 exit /b 1
 echo Built: bin\BatteryCheckGui.exe
+
+rem Installer: both exe embedded as resources; per-user, no admin. The manifest (asInvoker) is required:
+rem without it Windows treats an exe named *Setup* as an installer and asks for administrator rights.
+"%CSC%" %COMMON% /target:winexe /out:bin\BatteryCheckSetup.exe /win32manifest:src\Gui\app.manifest /win32icon:src\Gui\app.ico ^
+    /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll ^
+    /resource:bin\BatteryCheckGui.exe,payload.BatteryCheckGui.exe /resource:bin\BatteryCheck.exe,payload.BatteryCheck.exe ^
+    src\Setup\*.cs src\Core\AppInfo.cs
+if errorlevel 1 exit /b 1
+echo Built: bin\BatteryCheckSetup.exe

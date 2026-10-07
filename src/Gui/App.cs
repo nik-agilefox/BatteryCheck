@@ -48,6 +48,12 @@ namespace BatteryCheck
                     case "--no-log": o.Log = false; break;
                     case "--background": background = true; break;
                     case "--exit": exit = true; break;
+                    case "--after":  // перезапуск после обновления: дождаться выхода прежней копии, иначе она держит «один экземпляр»
+                        int pid;
+                        if (i + 1 < args.Length && int.TryParse(args[++i], out pid))
+                            try { using (var old = System.Diagnostics.Process.GetProcessById(pid)) old.WaitForExit(20000); }
+                            catch (ArgumentException) { }  // уже вышла
+                        break;
                     case "--software-render":  // отрисовка без Direct3D: проверка, не будит ли видеокарту смена состояния окна
                         System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
                         break;
@@ -75,6 +81,7 @@ namespace BatteryCheck
                     return 0;
                 }
                 if (exit) return 0;  // закрывать нечего
+                Updater.CleanupOld();  // *.old от прошлого обновления: прежняя копия уже вышла
 
                 var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
                 var theme = Theme.Create(dark);

@@ -3,3 +3,4 @@ logs/
 # Сборка (build.cmd / test.cmd)
 bin/
 *.lnk
+dist/

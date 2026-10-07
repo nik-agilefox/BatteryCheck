@@ -31,6 +31,9 @@ namespace BatteryCheck
                 T("Gauge: one band drifts in the last 3 discharges → Drifting", GaugeDrifting),
                 T("Gauge: too little data → Unknown", GaugeUnknown),
                 T("Wake log: old format is migrated once", WakeLogMigration),
+                T("Update: release JSON → version, package, sha256", ReleaseParse),
+                T("Update: no package / draft / prerelease → no update", ReleaseRejected),
+                T("Update: version comparison", ReleaseVersions),
                 T("Baseline: quietest minutes, busy and GPU-awake minutes excluded", BaselineQuiet),
                 T("Baseline: user input excludes a minute", BaselineInput),
                 T("Baseline: not enough quiet minutes → not valid", BaselineTooFew),
@@ -105,6 +108,46 @@ namespace BatteryCheck
         static void Equal<T2>(T2 actual, T2 expected, string what)
         {
             if (!Equals(actual, expected)) Fail(string.Format("{0}: expected «{1}», got «{2}»", what, expected, actual));
+        }
+
+        // ---------------- Обновления ----------------
+
+        static string ReleaseJson(string tag, string asset, bool draft, bool pre)
+        {
+            return "{\"tag_name\":\"" + tag + "\",\"html_url\":\"https://github.com/x/y/releases/tag/" + tag + "\",\"body\":\"fixes\"," +
+                   "\"draft\":" + (draft ? "true" : "false") + ",\"prerelease\":" + (pre ? "true" : "false") + ",\"assets\":[" +
+                   "{\"name\":\"BatteryCheckSetup-1.2.0.exe\",\"size\":10,\"browser_download_url\":\"https://github.com/x/y/releases/download/v1.2.0/BatteryCheckSetup-1.2.0.exe\"}," +
+                   "{\"name\":\"" + asset + "\",\"size\":12345,\"digest\":\"sha256:ABCDEF\",\"browser_download_url\":\"https://github.com/x/y/releases/download/" + tag + "/" + asset + "\"}]}";
+        }
+
+        static void ReleaseParse()
+        {
+            var r = ReleaseInfo.Parse(ReleaseJson("v1.2.0", "BatteryCheck-1.2.0.zip", false, false));
+            Check(r != null, "parsed");
+            if (r == null) return;
+            Equal(r.Version, "1.2.0", "version without v");
+            Check(r.PackageUrl.EndsWith("/BatteryCheck-1.2.0.zip"), "package url, not the setup");
+            Equal(r.PackageSize, 12345L, "size");
+            Equal(r.PackageSha256, "abcdef", "sha256 lower-case, without prefix");
+            Equal(r.Notes, "fixes", "notes");
+        }
+
+        static void ReleaseRejected()
+        {
+            Check(ReleaseInfo.Parse(ReleaseJson("v1.2.0", "other.zip", false, false)) == null, "no package");
+            Check(ReleaseInfo.Parse(ReleaseJson("v1.2.0", "BatteryCheck-1.2.0.zip", true, false)) == null, "draft");
+            Check(ReleaseInfo.Parse(ReleaseJson("v1.2.0", "BatteryCheck-1.2.0.zip", false, true)) == null, "prerelease");
+            Check(ReleaseInfo.Parse("{\"message\":\"Not Found\"}") == null, "API error");
+            Check(ReleaseInfo.Parse("not json") == null, "garbage");
+        }
+
+        static void ReleaseVersions()
+        {
+            Check(ReleaseInfo.IsNewer("1.10.0", "1.9.3"), "1.10 > 1.9");
+            Check(!ReleaseInfo.IsNewer("1.0.0", "1.0.0"), "same");
+            Check(!ReleaseInfo.IsNewer("0.9", "1.0.0"), "older");
+            Check(!ReleaseInfo.IsNewer("abc", "1.0.0"), "garbage is not newer");
+            Check(!ReleaseInfo.IsNewer(AppInfo.Version, AppInfo.Version), "current");
         }
 
         // ---------------- Синтетические логи ----------------

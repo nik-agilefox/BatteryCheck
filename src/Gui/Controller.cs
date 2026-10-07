@@ -60,6 +60,11 @@ namespace BatteryCheck
             tray.GetNotifications = () => window.NotificationsEnabled;
             tray.NotificationsChanged += on => window.NotificationsEnabled = on;
             window.Notify += n => tray.ShowHint(n.Title, n.Text);
+            window.RestartForUpdate += () =>
+            {
+                Updater.StartNewVersion();  // новая копия ждёт выхода этой (--after) и открывает окно
+                Exit();
+            };
 
             SystemEvents.PowerModeChanged += OnPowerModeChanged;
         }

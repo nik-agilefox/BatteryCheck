@@ -433,6 +433,7 @@ namespace BatteryCheck
             var logs = new FlatButton(L.T("Log folder", "Тека логів"));
             logs.Margin = new Thickness(8, 0, 0, 0);
             logs.Click += OpenLogFolder;
+            buttons.Children.Add(BuildUpdateButton());
             buttons.Children.Add(gpuToggle);
             buttons.Children.Add(logs);
             DockPanel.SetDock(buttons, Dock.Right);
@@ -918,6 +919,14 @@ namespace BatteryCheck
         }
 
         public string Text { set { label.Text = value; } }
+
+        /// <summary>Выделить рамку и текст цветом темы (ключ Keys.*); null — обычный вид.</summary>
+        public void SetAccent(string key)
+        {
+            SetResourceReference(BorderBrushProperty, key ?? Keys.Border);
+            label.SetResourceReference(TextBlock.ForegroundProperty, key ?? Keys.Text);
+            label.FontWeight = key != null ? FontWeights.SemiBold : FontWeights.Normal;
+        }
 
         void Fire()
         {
