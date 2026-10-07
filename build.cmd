@@ -33,7 +33,8 @@ rem Installer: both exe embedded as resources; per-user, no admin. The manifest 
 rem without it Windows treats an exe named *Setup* as an installer and asks for administrator rights.
 "%CSC%" %COMMON% /target:winexe /out:bin\BatteryCheckSetup.exe /win32manifest:src\Gui\app.manifest /win32icon:src\Gui\app.ico ^
     /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll ^
+    /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll ^
     /resource:bin\BatteryCheckGui.exe,payload.BatteryCheckGui.exe /resource:bin\BatteryCheck.exe,payload.BatteryCheck.exe ^
-    src\Setup\*.cs src\Core\AppInfo.cs
+    src\Setup\*.cs src\Core\AppInfo.cs src\Gui\Updater.cs
 if errorlevel 1 exit /b 1
 echo Built: bin\BatteryCheckSetup.exe

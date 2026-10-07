@@ -24,7 +24,7 @@ namespace BatteryCheck
         static string GuiExe { get { return Path.Combine(BinDir, "BatteryCheckGui.exe"); } }
         static string Shortcut { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), AppName + ".lnk"); } }
 
-        static bool silent;
+        static bool silent, offline;
 
         [STAThread]
         static int Main(string[] args)
@@ -36,6 +36,7 @@ namespace BatteryCheck
             {
                 if (a.Equals("/uninstall", StringComparison.OrdinalIgnoreCase)) uninstall = true;
                 if (a.Equals("/silent", StringComparison.OrdinalIgnoreCase)) silent = true;  // без окон: без автозапуска и открытия; данные сохраняются
+                if (a.Equals("/offline", StringComparison.OrdinalIgnoreCase)) offline = true;  // не проверять GitHub: ставить вшитую версию
             }
             try
             {
@@ -53,8 +54,23 @@ namespace BatteryCheck
         static int Install()
         {
             string installed = InstalledVersion();
+            // Есть ли на GitHub версия новее вшитой: тогда ставим её (архив тот же, что у кнопки обновления в программе).
+            // Без сети или при ошибке — вшитая версия; ждём недолго, чтобы установщик не «висел».
+            ReleaseInfo online = null;
+            if (!offline)
+            {
+                Cursor.Current = Cursors.WaitCursor;
+                string checkError;
+                online = Updater.Check(out checkError, 6000);
+                Cursor.Current = Cursors.Default;
+                if (online != null && !ReleaseInfo.IsNewer(online.Version, AppInfo.Version)) online = null;
+            }
+            string version = online != null ? online.Version : AppInfo.Version;
+
             var form = new SetupForm(
-                AppName + " " + AppInfo.Version,
+                AppName + " " + version,
+                (online != null ? "A newer version " + online.Version + " is available on GitHub: it will be downloaded (" +
+                                  (online.PackageSize / 1024) + " KB) and installed instead of " + AppInfo.Version + " from this installer.\n\n" : "") +
                 (installed != null ? "Installed: " + installed + " — it will be replaced; logs and settings are kept.\n\n" : "") +
                 "Installs to:\n" + BinDir + "\n\nNo administrator rights needed. Logs are kept in " + Path.Combine(Root, "logs") + ".",
                 installed != null ? "Update" : "Install",
@@ -64,14 +80,17 @@ namespace BatteryCheck
 
             CloseRunning();
             Directory.CreateDirectory(BinDir);
+            string fetchError = null;
+            if (online == null || !InstallOnline(online, out fetchError))
+            {
+                version = AppInfo.Version;
+                InstallEmbedded();
+                if (online != null && !silent)
+                    MessageBox.Show("Could not download version " + online.Version + " (" + fetchError + "). Version " + AppInfo.Version +
+                                    " from this installer is installed instead; it will offer the update itself (Check updates).",
+                                    AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
             var asm = Assembly.GetExecutingAssembly();
-            foreach (var name in Payload)
-                using (var src = asm.GetManifestResourceStream("payload." + name))
-                {
-                    if (src == null) throw new InvalidOperationException("The installer is damaged: " + name + " is missing.");
-                    string target = Path.Combine(BinDir, name);
-                    WriteFile(target, src);
-                }
             string self = asm.Location, uninstaller = Path.Combine(Root, "uninstall.exe");
             if (!string.Equals(self, uninstaller, StringComparison.OrdinalIgnoreCase)) File.Copy(self, uninstaller, true);
 
@@ -79,7 +98,7 @@ namespace BatteryCheck
             using (var k = Registry.CurrentUser.CreateSubKey(UninstallKey))
             {
                 k.SetValue("DisplayName", AppName);
-                k.SetValue("DisplayVersion", AppInfo.Version);
+                k.SetValue("DisplayVersion", version);
                 k.SetValue("Publisher", AppInfo.Repo.Split('/')[0]);
                 k.SetValue("URLInfoAbout", "https://github.com/" + AppInfo.Repo);
                 k.SetValue("InstallLocation", Root);
@@ -95,8 +114,49 @@ namespace BatteryCheck
 
             if (silent) return 0;
             if (form.Checked[1]) Process.Start(new ProcessStartInfo(GuiExe) { WorkingDirectory = BinDir });
-            else MessageBox.Show(AppName + " " + AppInfo.Version + " is installed. Find it in the Start menu.", AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            else MessageBox.Show(AppName + " " + version + " is installed. Find it in the Start menu.", AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
             return 0;
+        }
+
+        /// <summary>Файлы программы, вшитые в установщик.</summary>
+        static void InstallEmbedded()
+        {
+            var asm = Assembly.GetExecutingAssembly();
+            foreach (var name in Payload)
+                using (var src = asm.GetManifestResourceStream("payload." + name))
+                {
+                    if (src == null) throw new InvalidOperationException("The installer is damaged: " + name + " is missing.");
+                    WriteFile(Path.Combine(BinDir, name), src);
+                }
+        }
+
+        /// <summary>
+        /// Скачать релиз (размер и SHA-256 сверяются) и поставить его файлы; false — ошибка. Если она случилась на середине
+        /// замены, вызывающий ставит вшитую версию поверх: файлы снова из одной версии.
+        /// </summary>
+        static bool InstallOnline(ReleaseInfo r, out string error)
+        {
+            string work = Path.Combine(Path.GetTempPath(), "BatteryCheck-setup-" + r.Version);
+            try
+            {
+                Cursor.Current = Cursors.WaitCursor;
+                var files = Updater.Fetch(r, work, null, out error);
+                if (files == null) return false;
+                foreach (var name in files)
+                    using (var src = File.OpenRead(Path.Combine(work, "files", name)))
+                        WriteFile(Path.Combine(BinDir, name), src);
+                return true;
+            }
+            catch (Exception e)
+            {
+                error = e.Message;
+                return false;
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+                try { if (Directory.Exists(work)) Directory.Delete(work, true); } catch (Exception) { }
+            }
         }
 
         static string InstalledVersion()

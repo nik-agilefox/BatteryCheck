@@ -31,10 +31,18 @@ namespace BatteryCheck
         /// <summary>Последний релиз; null — релизов нет или в нём нет архива программы (error = null), либо ошибка сети (error).</summary>
         public static ReleaseInfo Check(out string error)
         {
+            return Check(out error, 20000);
+        }
+
+        /// <summary>То же с заданным тайм-аутом (установщик ждёт недолго: без сети ставит свою версию).</summary>
+        public static ReleaseInfo Check(out string error, int timeoutMs)
+        {
             error = null;
             try
             {
-                using (var resp = (HttpWebResponse)Request(ApiUrl, "application/vnd.github+json").GetResponse())
+                var req = Request(ApiUrl, "application/vnd.github+json");
+                req.Timeout = req.ReadWriteTimeout = timeoutMs;
+                using (var resp = (HttpWebResponse)req.GetResponse())
                 using (var sr = new StreamReader(resp.GetResponseStream(), Encoding.UTF8))
                     return ReleaseInfo.Parse(sr.ReadToEnd());
             }
@@ -51,23 +59,12 @@ namespace BatteryCheck
         /// <summary>Скачать, проверить и подменить файлы. progress — проценты загрузки (из рабочего потока). true — можно перезапускать.</summary>
         public static bool Install(ReleaseInfo r, Action<int> progress, out string error)
         {
-            error = null;
             string work = Path.Combine(Path.GetTempPath(), "BatteryCheck-update-" + r.Version);
-            string zip = Path.Combine(work, AppInfo.PackageName(r.Version));
-            string unpacked = Path.Combine(work, "files");
             try
             {
-                if (Directory.Exists(work)) Directory.Delete(work, true);
-                Directory.CreateDirectory(unpacked);
-                Download(r.PackageUrl, zip, r.PackageSize, progress);
-
-                long size = new FileInfo(zip).Length;
-                if (r.PackageSize > 0 && size != r.PackageSize) { error = string.Format("size {0} instead of {1}", size, r.PackageSize); return false; }
-                if (r.PackageSha256 != null && Sha256(zip) != r.PackageSha256) { error = "SHA-256 mismatch"; return false; }
-
-                var files = Unpack(zip, unpacked);
-                if (!files.Contains("BatteryCheckGui.exe")) { error = "BatteryCheckGui.exe not in the package"; return false; }
-                Replace(unpacked, files);
+                var files = Fetch(r, work, progress, out error);
+                if (files == null) return false;
+                Replace(Path.Combine(work, "files"), files);
                 return true;
             }
             catch (Exception e)
@@ -79,6 +76,28 @@ namespace BatteryCheck
             {
                 try { if (Directory.Exists(work)) Directory.Delete(work, true); } catch (Exception) { }
             }
+        }
+
+        /// <summary>
+        /// Скачать архив релиза в work, сверить размер и SHA-256, распаковать в work\files. Возвращает имена файлов
+        /// или null (error). Папку work удаляет вызывающий. Нужна и установщику: он ставит скачанное вместо вшитого.
+        /// </summary>
+        public static HashSet<string> Fetch(ReleaseInfo r, string work, Action<int> progress, out string error)
+        {
+            error = null;
+            string zip = Path.Combine(work, AppInfo.PackageName(r.Version));
+            string unpacked = Path.Combine(work, "files");
+            if (Directory.Exists(work)) Directory.Delete(work, true);
+            Directory.CreateDirectory(unpacked);
+            Download(r.PackageUrl, zip, r.PackageSize, progress);
+
+            long size = new FileInfo(zip).Length;
+            if (r.PackageSize > 0 && size != r.PackageSize) { error = string.Format("size {0} instead of {1}", size, r.PackageSize); return null; }
+            if (r.PackageSha256 != null && Sha256(zip) != r.PackageSha256) { error = "SHA-256 mismatch"; return null; }
+
+            var files = Unpack(zip, unpacked);
+            if (!files.Contains("BatteryCheckGui.exe")) { error = "BatteryCheckGui.exe not in the package"; return null; }
+            return files;
         }
 
         /// <summary>Запустить новую версию: она дождётся выхода этой (--after) и откроет окно.</summary>
