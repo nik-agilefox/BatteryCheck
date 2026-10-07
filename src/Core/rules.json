@@ -1,0 +1,172 @@
+{
+  "version": 1,
+  "comment": "Built-in advice rules. Override or extend with rules.user.json next to the logs folder: entries with the same id replace these, new ids are added, gpu_pollers are merged. Typical background watts are guidelines per app category, not measurements.",
+
+  "categories": [
+    {
+      "id": "messenger",
+      "name": { "en": "messenger", "uk": "месенджер" },
+      "typical_bg_w": 0.3,
+      "advice": {
+        "en": "in the background a messenger only needs occasional message checks; check whether it is playing video, animated stickers or a call",
+        "uk": "у фоні месенджеру достатньо рідких перевірок повідомлень; перевірте, чи не йде в ньому відео, анімовані стікери або дзвінок"
+      },
+      "processes": [ "telegram", "discord", "whatsapp", "slack", "teams", "ms-teams", "viber", "signal", "skype", "zoom", "element", "messenger" ]
+    },
+    {
+      "id": "browser",
+      "name": { "en": "browser", "uk": "браузер" },
+      "typical_bg_w": 1.0,
+      "advice": {
+        "en": "close background tabs with video and animation; turn on the browser's energy saver and sleeping tabs",
+        "uk": "закрийте фонові вкладки з відео та анімацією; увімкніть у браузері режим енергозбереження і «сплячі вкладки»"
+      },
+      "processes": [ "chrome", "msedge", "firefox", "opera", "opera_gx", "brave", "browser", "vivaldi", "arc", "yandex", "librewolf", "waterfox" ]
+    },
+    {
+      "id": "webapp",
+      "name": { "en": "web app", "uk": "вебзастосунок" },
+      "typical_bg_w": 0.5,
+      "advice": {
+        "en": "a minimized Electron/WebView app often keeps animating its interface; close it if you do not need it",
+        "uk": "згорнутий застосунок на Electron/WebView часто продовжує анімувати інтерфейс; закрийте його, якщо він не потрібен"
+      },
+      "processes": [ "chatgpt", "claude", "notion", "obsidian", "spotify", "figma", "code", "cursor", "postman", "1password", "msedgewebview2", "todoist", "linear", "github desktop", "githubdesktop" ]
+    },
+    {
+      "id": "launcher",
+      "name": { "en": "game launcher", "uk": "лаунчер ігор" },
+      "typical_bg_w": 0.2,
+      "advice": {
+        "en": "on battery it is better to close launchers: they refresh store pages and overlays and wake the GPU",
+        "uk": "при роботі від батареї лаунчери краще закривати: вони оновлюють вітрини, оверлеї та будять відеокарту"
+      },
+      "processes": [ "steam", "steamwebhelper", "epicgameslauncher", "eosoverlayrenderer-win64-shipping", "battle.net", "upc", "eadesktop", "galaxyclient", "riotclientservices", "xboxpcapp", "gamingservices" ]
+    },
+    {
+      "id": "vendor",
+      "name": { "en": "vendor utility", "uk": "утиліта виробника" },
+      "typical_bg_w": 0.2,
+      "advice": {
+        "en": "temperature, fan and lighting monitors poll sensors and the GPU regularly; close them on battery",
+        "uk": "монітори температури, вентиляторів і підсвітки регулярно опитують датчики та відеокарту; закривайте їх при роботі від батареї"
+      },
+      "processes": [ "nvidia overlay", "nvcontainer", "nvsphelper64", "nvidia app", "logioptionsplus_agent", "logipluginservice", "lghub", "lghub_agent", "intelgraphicssoftware", "radeonsoftware", "icue", "signalrgb", "openrgb" ],
+      "vendor_utilities": true
+    },
+    {
+      "id": "monitor",
+      "name": { "en": "hardware monitor", "uk": "монітор заліза" },
+      "typical_bg_w": 0.3,
+      "advice": {
+        "en": "hardware monitors read sensors and the GPU many times a second and keep the discrete GPU awake; close them on battery",
+        "uk": "монітори заліза читають датчики й відеокарту кілька разів на секунду і не дають дискретній відеокарті заснути; закривайте їх при роботі від батареї"
+      },
+      "processes": [ "hwinfo64", "hwinfo32", "msiafterburner", "rtss", "gpu-z", "aida64", "hwmonitor", "openhardwaremonitor", "librehardwaremonitor", "fancontrol", "throttlestop" ]
+    },
+    {
+      "id": "maintenance",
+      "name": { "en": "Windows maintenance", "uk": "обслуговування Windows" },
+      "typical_bg_w": 0.5,
+      "advice": {
+        "en": "antivirus, indexing and updates usually run once in a while; if this is constant, let it finish with the charger plugged in",
+        "uk": "антивірус, індексація й оновлення зазвичай працюють разово; якщо це постійно — дочекайтеся завершення, підключивши зарядку"
+      },
+      "processes": [ "msmpeng", "mpdefendercoreservice", "searchindexer", "searchprotocolhost", "searchfilterhost", "tiworker", "trustedinstaller", "compattelrunner", "mousocoreworker", "wuauclt", "onedrive" ]
+    },
+    {
+      "id": "compositor",
+      "name": { "en": "window compositor", "uk": "композитор вікон" },
+      "typical_bg_w": 1.5,
+      "advice": {
+        "en": "draws everything on screen; grows with the refresh rate and animations",
+        "uk": "малює все на екрані; зростає з частотою оновлення та анімаціями"
+      },
+      "processes": [ "dwm" ]
+    },
+    {
+      "id": "system",
+      "name": { "en": "system", "uk": "система" },
+      "typical_bg_w": 0.6,
+      "processes": [ "system", "csrss", "svchost", "explorer", "audiodg", "wmiprvse", "registry", "memory compression", "lsass", "services", "smss", "wininit", "winlogon", "fontdrvhost", "sihost", "taskhostw", "runtimebroker", "searchhost", "startmenuexperiencehost", "shellexperiencehost", "textinputhost", "ctfmon" ]
+    }
+  ],
+
+  "vendors": [
+    {
+      "id": "acer",
+      "name": "Acer",
+      "match": [ "acer" ],
+      "utilities": [ "predatorsense", "nitrosense", "acercarecenter", "acerquickaccess", "acersysmonitor", "acer purified voice", "acerpurifiedvoice", "acerdiagnostics" ],
+      "prefixes": [ "acer", "predator" ],
+      "mode_hint": { "en": "Also check the mode in PredatorSense / NitroSense: a quiet or power-saving mode.", "uk": "Також перевірте режим у PredatorSense / NitroSense: тихий або енергоощадний." }
+    },
+    {
+      "id": "lenovo",
+      "name": "Lenovo",
+      "match": [ "lenovo" ],
+      "utilities": [ "lenovovantage", "lenovovantageservice", "lenovo vantage", "imcontrollerservice", "legionzone", "legionspace", "lenovolegiontoolkit", "lenovo.modern.imcontroller" ],
+      "prefixes": [ "lenovo", "legion" ],
+      "mode_hint": { "en": "Also check the mode in Lenovo Vantage / Legion Space: Quiet or battery saving (on many models Fn+Q).", "uk": "Також перевірте режим у Lenovo Vantage / Legion Space: тихий або енергоощадний (на багатьох моделях Fn+Q)." }
+    },
+    {
+      "id": "asus",
+      "name": "ASUS",
+      "match": [ "asus" ],
+      "utilities": [ "armourycrate", "armourycrate.service", "armourycrate.usersessionhelper", "asusoptimization", "asus_framework", "myasus", "asussystemanalysis", "asussoftwaremanager", "rogliveservice" ],
+      "prefixes": [ "asus", "armourycrate" ],
+      "mode_hint": { "en": "Also check the mode in Armoury Crate / MyASUS: Silent.", "uk": "Також перевірте режим в Armoury Crate / MyASUS: тихий (Silent)." }
+    },
+    {
+      "id": "dell",
+      "name": "Dell",
+      "match": [ "dell", "alienware" ],
+      "utilities": [ "dell.techhub", "delloptimizer", "dell.d3.winsvc", "supportassistagent", "alienware command center", "awcc", "dellpowermanager" ],
+      "prefixes": [ "dell", "alienware" ],
+      "mode_hint": { "en": "Also check the thermal mode in Dell Optimizer / Power Manager / Alienware Command Center: Quiet or Cool.", "uk": "Також перевірте тепловий режим у Dell Optimizer / Power Manager / Alienware Command Center: тихий або прохолодний." }
+    },
+    {
+      "id": "hp",
+      "name": "HP",
+      "match": [ "hp", "hewlett" ],
+      "utilities": [ "omencommandcenterbackground", "omencommandcenter", "omen gaming hub", "hpcommandcenter", "hpsysinfo", "hpsupportsolutionsframeworkservice", "hpaudioswitch" ],
+      "prefixes": [ "omen" ],
+      "mode_hint": { "en": "Also check the mode in OMEN Gaming Hub / HP Command Center: quiet or power saver.", "uk": "Також перевірте режим в OMEN Gaming Hub / HP Command Center: тихий або енергоощадний." }
+    },
+    {
+      "id": "msi",
+      "name": "MSI",
+      "match": [ "micro-star", "msi" ],
+      "utilities": [ "msi.centralserver", "msi.center", "msi_central_service", "dragoncenter", "msi.terminalserver" ],
+      "prefixes": [ "msi." ],
+      "mode_hint": { "en": "Also check the scenario in MSI Center: Silent or Super Battery.", "uk": "Також перевірте сценарій у MSI Center: Silent або Super Battery." }
+    },
+    {
+      "id": "razer",
+      "name": "Razer",
+      "match": [ "razer" ],
+      "utilities": [ "razer synapse", "razer synapse 3", "razer synapse service", "razercentralservice", "rzsynapse" ],
+      "prefixes": [ "razer", "rz" ],
+      "mode_hint": { "en": "Also check the performance mode in Razer Synapse: a battery-saving mode.", "uk": "Також перевірте режим продуктивності в Razer Synapse: енергоощадний." }
+    },
+    {
+      "id": "samsung",
+      "name": "Samsung",
+      "match": [ "samsung" ],
+      "utilities": [ "samsungsettings", "samsung settings", "samsungupdate" ],
+      "prefixes": [ "samsung" ],
+      "mode_hint": { "en": "Also check the performance mode in Samsung Settings: Silent or power saving.", "uk": "Також перевірте режим продуктивності в Samsung Settings: тихий або енергоощадний." }
+    }
+  ],
+
+  "subzero_services_comment": "Stopped by the Subzero mode (one UAC prompt) and started again when you leave it; a reboot starts them anyway. Acer Quick Access, Care Center and Device Info hold the system timer at 1 ms (powercfg /energy, 05.10).",
+  "subzero_services": [ "AcerQAAgentSvis", "AcerCCAgentSvis", "AcerDIAgentSvis" ],
+
+  "efficiency_exclude_comment": "Never put into efficiency mode by Max economy: the Windows shell (the taskbar and Start would lag), players and call apps (audio could stutter), apps that work in the background while you wait.",
+  "efficiency_exclude": [ "explorer", "dwm", "ShellExperienceHost", "StartMenuExperienceHost", "SearchHost", "SearchApp", "TextInputHost", "ctfmon", "sihost",
+                          "taskhostw", "RuntimeBroker", "ApplicationFrameHost", "LockApp", "SystemSettings", "Taskmgr", "audiodg", "BatteryCheckGui", "BatteryCheck",
+                          "Spotify", "vlc", "foobar2000", "Music.UI", "Microsoft.Media.Player", "mpc-hc64", "AIMP", "Teams", "ms-teams", "Zoom", "Discord", "Skype", "claude" ],
+
+  "gpu_pollers": [ "PredatorSense", "NitroSense", "NVIDIA Overlay", "nvcontainer", "steam", "EpicGamesLauncher", "ArmouryCrate", "LegionSpace", "LegionZone",
+                   "MSI.CentralServer", "OmenCommandCenterBackground", "HWiNFO64", "MSIAfterburner", "RTSS", "GPU-Z", "aida64", "lghub", "iCUE", "SignalRgb" ]
+}
