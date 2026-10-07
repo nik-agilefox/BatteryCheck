@@ -52,6 +52,7 @@ namespace BatteryCheck
         public string Manufacturer;        // из BIOS
         public bool GpuDisabled;           // дискретная видеокарта отключена в диспетчере устройств
         public double TimerMs = double.NaN; // разрешение системного таймера сейчас
+        public bool HasBattery = true;     // ПК без аккумулятора: советы про экран ноутбука, батарею и сон видеокарты не к месту
         public HashSet<string> Running = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }
 
@@ -149,8 +150,8 @@ namespace BatteryCheck
             AddProcessAdvice(r, rules);
             r.Quiet = QuietProcesses.Compute(dir, Days, DateTime.Now);
             AddQuietAdvice(r, rules);
-            AddWakeAdvice(r, dir, ctx, rules);
-            AddScreenAdvice(r, ctx);
+            if (ctx.HasBattery) AddWakeAdvice(r, dir, ctx, rules);  // на ПК видеокарта с монитором не спит вовсе
+            if (ctx.HasBattery) AddScreenAdvice(r, ctx);            // встроенный экран ноутбука
             AddSystemAdvice(r, ctx, vendor);
             r.Items.Sort((a, b) => (double.IsNaN(b.SavingW) ? -1 : b.SavingW).CompareTo(double.IsNaN(a.SavingW) ? -1 : a.SavingW));
             return r;
@@ -334,7 +335,7 @@ namespace BatteryCheck
 
         static void AddSystemAdvice(AdviceReport r, AdviceContext ctx, RuleVendor vendor)
         {
-            if (ctx.PowerMode == "performance" || ctx.PowerMode == "best")
+            if (ctx.HasBattery && (ctx.PowerMode == "performance" || ctx.PowerMode == "best"))  // совет про режим «от батареи»
                 r.Items.Add(new Recommendation
                 {
                     Title = string.Format(L.T("Windows power mode on battery: “{0}”", "Режим живлення Windows від батареї: «{0}»"), PowerModeName(ctx.PowerMode)),
@@ -359,7 +360,7 @@ namespace BatteryCheck
                     Detail = MainWindow.GpuDisabledText,
                     Basis = L.T("measured on a Predator PHN16S-71: +17 W", "виміряно на Predator PHN16S-71: +17 Вт"),
                 });
-            if (ctx.DisplaysOnGpu > 0)
+            if (ctx.HasBattery && ctx.DisplaysOnGpu > 0)  // у ПК монитор на видеокарте — норма
                 r.Items.Add(new Recommendation
                 {
                     Title = L.T("An external monitor is connected to the NVIDIA GPU", "Зовнішній монітор підключено до відеокарти NVIDIA"),

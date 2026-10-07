@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
@@ -58,7 +59,7 @@ namespace BatteryCheck
             // Подписки на постоянные элементы — здесь, а не в Build*: разметка пересобирается при смене языка.
             chart.ViewChanged += OnChartViewChanged;
             chart.ToolTip = null;
-            powerSpark.MouseLeftButtonUp += (s, e) => ShowChargerMenu();
+            powerSpark.MouseLeftButtonUp += (s, e) => { if (HasBattery) ShowChargerMenu(); };
             StartEconomyTimer();
             Content = BuildLayout();
             chart.Theme = theme;
@@ -77,6 +78,19 @@ namespace BatteryCheck
                 SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
                 SetThreadExecutionState(EsContinuous);  // если шла проверка «до / после» — вернуть гашение экрана
             };
+        }
+
+        /// <summary>
+        /// Есть аккумулятор. Нет (настольный ПК) — решается один раз при запуске: батарейные плитки, карточки и вкладки
+        /// создаются как обычно (код обновления их не различает), но скрыты; «всего» — процессор + видеокарты.
+        /// </summary>
+        bool HasBattery { get { return sampler.HasBattery; } }
+
+        /// <summary>Показать элемент только на ноутбуке.</summary>
+        T BatteryOnly<T>(T e) where T : UIElement
+        {
+            if (!HasBattery) e.Visibility = Visibility.Collapsed;
+            return e;
         }
 
         /// <summary>Окно видно на экране: не скрыто в трей и не свёрнуто.</summary>
@@ -111,7 +125,7 @@ namespace BatteryCheck
             var wakesBtn = BuildWakesButton();
             wakesBtn.Margin = new Thickness(0, 0, 8, 0);
             sp.Children.Add(wakesBtn);
-            sp.Children.Add(BuildScreenButton());
+            sp.Children.Add(BatteryOnly(BuildScreenButton()));  // замер экрана — по разряду батареи
             return sp;
         }
 
@@ -239,7 +253,13 @@ namespace BatteryCheck
             for (int i = 0; i < 7; i++)
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = i % 2 == 1 ? new GridLength(12) : new GridLength(widths[i / 2], GridUnitType.Star) });
 
-            g.Children.Add(At(Tile(out powerLabel, L.T("Power draw", "Споживання"), out powerValue, out powerSub, null, powerSpark), 0, 0));
+            var powerTile = At(Tile(out powerLabel, L.T("Power draw", "Споживання"), out powerValue, out powerSub, null, powerSpark), 0, 0);
+            if (!HasBattery)
+            {
+                Grid.SetColumnSpan(powerTile, 7);  // на ПК — одна плитка во всю ширину, и мини-график в ней шире
+                powerSpark.Width = 420;
+            }
+            g.Children.Add(powerTile);
 
             var track = new Grid { Height = 6, Margin = new Thickness(0, 8, 0, 0) };
             socFilled = new ColumnDefinition { Width = new GridLength(0, GridUnitType.Star) };
@@ -254,11 +274,11 @@ namespace BatteryCheck
             track.Children.Add(trackBg);
             track.Children.Add(socFill);
             TextBlock socLabel;
-            g.Children.Add(At(Tile(out socLabel, L.T("Charge", "Заряд"), out socValue, out socSub, track), 0, 2));
+            g.Children.Add(BatteryOnly(At(Tile(out socLabel, L.T("Charge", "Заряд"), out socValue, out socSub, track), 0, 2)));
 
-            g.Children.Add(At(Tile(out leftLabel, RemainingText, out leftValue, out leftSub, null), 0, 4));
+            g.Children.Add(BatteryOnly(At(Tile(out leftLabel, RemainingText, out leftValue, out leftSub, null), 0, 4)));
             TextBlock healthLabel;
-            g.Children.Add(At(Tile(out healthLabel, L.T("Battery health", "Здоров'я батареї"), out healthValue, out healthSub, null), 0, 6));
+            g.Children.Add(BatteryOnly(At(Tile(out healthLabel, L.T("Battery health", "Здоров'я батареї"), out healthValue, out healthSub, null), 0, 6)));
             return g;
         }
 
@@ -370,6 +390,8 @@ namespace BatteryCheck
             gpuRow = comp.Row(GpuText, Keys.Gpu);
             screenRow = comp.Row(L.T("Screen (OLED)", "Екран (OLED)"), null);
             restRow = comp.Row(L.T("Rest", "Решта"), null);
+            if (!HasBattery)  // экран ноутбука и «остальное» по батарее на ПК не измерить — только пояснение под таблицей
+                foreach (var t in screenRow.Concat(restRow)) t.Visibility = Visibility.Collapsed;
             var compPanel = new StackPanel();
             compPanel.Children.Add(comp.Grid);
             restNote = Label(RestNoteText, 11, FontWeights.Normal, Keys.Muted);
@@ -385,7 +407,9 @@ namespace BatteryCheck
             var leftContent = new Grid();
             leftContent.Children.Add(componentsView);
             leftContent.Children.Add(processesView);
-            g.Children.Add(At(Card(leftContent, L.T("Components", "Компоненти"), ComponentsHeaderButtons(), out leftCardTitle), 0, 0));
+            var compCard = At(Card(leftContent, L.T("Components", "Компоненти"), ComponentsHeaderButtons(), out leftCardTitle), 0, 0);
+            if (!HasBattery) Grid.SetColumnSpan(compCard, 5);  // на ПК карточек «Батарея» и «Сессия» нет
+            g.Children.Add(compCard);
 
             // Батарея
             var bat = new Table(null);
@@ -396,7 +420,7 @@ namespace BatteryCheck
             bVoltage = bat.Pair(L.T("Voltage", "Напруга"));
             bCurrent = bat.Pair(L.T("Current", "Струм"));
             bDisplays = bat.Pair(L.T("Displays", "Екрани"));
-            g.Children.Add(At(Card(bat.Grid, L.T("Battery", "Батарея"), null), 0, 2));
+            g.Children.Add(BatteryOnly(At(Card(bat.Grid, L.T("Battery", "Батарея"), null), 0, 2)));
 
             // Сессия разряда
             var reset = new FlatButton(L.T("Reset", "Скинути"));
@@ -415,7 +439,7 @@ namespace BatteryCheck
             sHint.Margin = new Thickness(0, 6, 0, 0);
             sHint.TextWrapping = TextWrapping.Wrap;
             sesPanel.Children.Add(sHint);
-            g.Children.Add(At(Card(sesPanel, L.T("Discharge session", "Сесія розряду"), reset), 0, 4));
+            g.Children.Add(BatteryOnly(At(Card(sesPanel, L.T("Discharge session", "Сесія розряду"), reset), 0, 4)));
             return g;
         }
 
@@ -507,9 +531,9 @@ namespace BatteryCheck
             LastTotalW = totalW;
             UpdateTitle();
             // Для графика: потребление системы и «остальное» — и от сети (оценкой по последнему замеру от батареи).
-            double systemW = b.Discharging ? s.DischargeW
+            double systemW = !HasBattery ? totalW : b.Discharging ? s.DischargeW
                 : b.OnLine && !double.IsNaN(s.CpuPkgW) ? s.CpuPkgW + Nz(s.GpuW) + Nz(restRefW) : double.NaN;
-            double restLine = b.Discharging ? snap.RestW : b.OnLine ? restRefW : double.NaN;
+            double restLine = !HasBattery ? double.NaN : b.Discharging ? snap.RestW : b.OnLine ? restRefW : double.NaN;
             // «Остальное» сглажено за 10 с (батарея и счётчики процессора обновляются не синхронно) и после пика ещё
             // несколько секунд «помнит» его — на графике выходило выше «Всего». Не выше мгновенного остатка.
             if (b.Discharging && !double.IsNaN(restLine) && !double.IsNaN(s.DischargeW) && !double.IsNaN(s.CpuPkgW))
@@ -542,10 +566,12 @@ namespace BatteryCheck
             var model = new System.Collections.Generic.List<string>();
             foreach (var part in new[] { info.DeviceName, info.Manufacturer, info.Chemistry })
                 if (!string.IsNullOrEmpty(part)) model.Add(part);
-            subtitle.Text = string.Join(" · ", model);
+            subtitle.Text = HasBattery ? string.Join(" · ", model)
+                : L.T("No battery: CPU, graphics and apps are measured; the whole PC's draw is not", "Без батареї: вимірюються процесор, графіка й програми, а споживання всього ПК — ні");
 
             string dotKey;
-            if (b.Critical) { stateText.Text = L.T("Critical charge", "Критичний заряд"); dotKey = Keys.Critical; }
+            if (!HasBattery) { stateText.Text = L.T("Desktop · no battery", "ПК · без батареї"); dotKey = Keys.Muted; }
+            else if (b.Critical) { stateText.Text = L.T("Critical charge", "Критичний заряд"); dotKey = Keys.Critical; }
             else if (b.Discharging) { stateText.Text = L.T("On battery", "Від батареї"); dotKey = Keys.Battery; }
             else if (b.Charging) { stateText.Text = L.T("Charging", "Заряджається"); dotKey = Keys.Good; }
             else if (b.OnLine) { stateText.Text = L.T("Plugged in", "Від мережі"); dotKey = Keys.Muted; }
@@ -613,7 +639,10 @@ namespace BatteryCheck
             bool split = !double.IsNaN(screenW) && calPhase < 0;
             restRow[0].Text = (split ? L.T("Other", "Інше") : L.T("Rest", "Решта")) + (!double.IsNaN(s.GpuW) ? "" : L.T(" + GPU", " + відеокарта"));
             SetRow(restRow, double.NaN, split && !double.IsNaN(snap.RestW) ? Math.Max(0, snap.RestW - screenW) : snap.RestW, "");
-            restNote.Text = !b.Discharging
+            restNote.Text = !HasBattery
+                ? L.T("“Rest” (board, storage, fans, monitor) is not measured: a PC without a battery has no sensor for its total draw",
+                      "«Решта» (плата, накопичувачі, вентилятори, монітор) не вимірюється: у ПК без батареї немає датчика загального споживання")
+                : !b.Discharging
                 ? L.T("“Rest” is measured only on battery", "«Решта» рахується лише від батареї")
                 : split ? (double.IsNaN(screenModel.PanelW)
                     ? L.T("other: board, memory, SSD, network, fans, black screen = battery − CPU − GPU − screen",

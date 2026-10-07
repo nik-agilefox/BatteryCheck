@@ -123,13 +123,20 @@ namespace BatteryCheck
         }
     }
 
-    /// <summary>Активная схема питания Windows (powrprof).</summary>
+    /// <summary>
+    /// Активная схема питания Windows (powrprof). Значения «от батареи» (DC) — у ноутбука; у ПК без аккумулятора
+    /// Windows всегда «от сети», поэтому там те же настройки пишутся в значения AC (ac = true).
+    /// </summary>
     sealed class ActivePowerScheme : IPowerScheme
     {
         Guid scheme;
+        readonly bool ac;
 
-        public ActivePowerScheme()
+        public ActivePowerScheme() : this(false) { }
+
+        public ActivePowerScheme(bool ac)
         {
+            this.ac = ac;
             IntPtr p;
             if (PowerGetActiveScheme(IntPtr.Zero, out p) != 0) throw new InvalidOperationException("no active power scheme");
             scheme = (Guid)Marshal.PtrToStructure(p, typeof(Guid));
@@ -138,12 +145,14 @@ namespace BatteryCheck
 
         public bool ReadDc(Guid sub, Guid setting, out uint value)
         {
-            return PowerReadDCValueIndex(IntPtr.Zero, ref scheme, ref sub, ref setting, out value) == 0;
+            return (ac ? PowerReadACValueIndex(IntPtr.Zero, ref scheme, ref sub, ref setting, out value)
+                       : PowerReadDCValueIndex(IntPtr.Zero, ref scheme, ref sub, ref setting, out value)) == 0;
         }
 
         public bool WriteDc(Guid sub, Guid setting, uint value)
         {
-            return PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref sub, ref setting, value) == 0;
+            return (ac ? PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref sub, ref setting, value)
+                       : PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref sub, ref setting, value)) == 0;
         }
 
         public void Activate() { PowerSetActiveScheme(IntPtr.Zero, ref scheme); }
@@ -151,6 +160,8 @@ namespace BatteryCheck
         [DllImport("powrprof.dll")] static extern uint PowerGetActiveScheme(IntPtr root, out IntPtr guid);
         [DllImport("powrprof.dll")] static extern uint PowerReadDCValueIndex(IntPtr root, ref Guid scheme, ref Guid sub, ref Guid setting, out uint value);
         [DllImport("powrprof.dll")] static extern uint PowerWriteDCValueIndex(IntPtr root, ref Guid scheme, ref Guid sub, ref Guid setting, uint value);
+        [DllImport("powrprof.dll")] static extern uint PowerReadACValueIndex(IntPtr root, ref Guid scheme, ref Guid sub, ref Guid setting, out uint value);
+        [DllImport("powrprof.dll")] static extern uint PowerWriteACValueIndex(IntPtr root, ref Guid scheme, ref Guid sub, ref Guid setting, uint value);
         [DllImport("powrprof.dll")] static extern uint PowerSetActiveScheme(IntPtr root, ref Guid scheme);
         [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr h);
     }

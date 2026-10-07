@@ -28,8 +28,8 @@ namespace BatteryCheck
             adviceSummary = Label(L.T("Analyzing…", "Аналізую…"), 12, FontWeights.Normal, Keys.Text2);
             adviceSummary.TextWrapping = TextWrapping.Wrap;
             panel.Children.Add(adviceSummary);
-            panel.Children.Add(BuildExperimentCard());
-            panel.Children.Add(BuildProfileCard());
+            panel.Children.Add(BatteryOnly(BuildExperimentCard()));  // «до / после» сравнивает разряд батареи
+            panel.Children.Add(BatteryOnly(BuildProfileCard()));     // профиль включается при отключении зарядки
 
             panel.Children.Add(SectionTitle(L.T("What can be improved", "Що можна покращити")));
             adviceItems = new StackPanel();
@@ -43,7 +43,7 @@ namespace BatteryCheck
             for (int i = 0; i < 3; i++) quietTable.ColumnDefinitions.Add(new ColumnDefinition { Width = i == 0 ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
             panel.Children.Add(quietTable);
 
-            panel.Children.Add(SectionTitle(L.T("What used the battery", "Хто витрачав батарею")));
+            panel.Children.Add(SectionTitle(HasBattery ? L.T("What used the battery", "Хто витрачав батарею") : L.T("What used energy", "Хто витрачав енергію")));
             adviceTable = new Grid();
             for (int i = 0; i < 7; i++)
                 adviceTable.ColumnDefinitions.Add(new ColumnDefinition { Width = i == 0 ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
@@ -73,7 +73,8 @@ namespace BatteryCheck
                 FullWh = lastSnap != null ? lastSnap.Info.FullChargedCapacity / 1000.0 : double.NaN,
                 Manufacturer = Machine.Manufacturer,
                 GpuDisabled = lastSnap != null && lastSnap.Sample.GpuDisabled,
-                TimerMs = lastSnap != null && lastSnap.Sample.Battery.Discharging ? lastSnap.Sample.TimerMs : double.NaN,
+                TimerMs = Sampler.SavingApplies(lastSnap) ? lastSnap.Sample.TimerMs : double.NaN,
+                HasBattery = HasBattery,
             };
             string dir = LogDirectory;
             bool onBattery = lastSnap != null && lastSnap.Sample.Battery.Discharging;
@@ -114,17 +115,24 @@ namespace BatteryCheck
             }
 
             adviceSummary.Inlines.Clear();
-            adviceSummary.Inlines.Add(new Run(r.Hours > 0
+            adviceSummary.Inlines.Add(new Run(!HasBattery
+                ? (r.Hours > 0
+                    ? string.Format(L.T("Last {0} days: {1} with data collection · CPU and graphics {2:0.0} Wh · average {3}.", "За останні {0} днів: {1} зі збором даних · процесор і графіка {2:0.0} Вт·год · у середньому {3}."),
+                        Advisor.Days, Fmt.Hours(r.Hours), r.BatteryWh, Fmt.W(r.AvgW))
+                    : L.T("No data yet: app statistics are collected in the background while Battery Check is running.", "Даних поки немає: статистика програм збирається у фоні, поки працює Battery Check."))
+                : r.Hours > 0
                 ? string.Format(L.T("Last {0} days: {1} on battery with data collection · {2:0.0} Wh · average power {3}.", "За останні {0} днів: від батареї {1} зі збором даних · {2:0.0} Вт·год · середня потужність {3}."),
                     Advisor.Days, Fmt.Hours(r.Hours), r.BatteryWh, Fmt.W(r.AvgW))
                 : L.T("No battery data yet: app statistics are collected in the background while the laptop runs on battery.", "Даних про роботу від батареї поки немає: статистика програм збирається у фоні, коли ноутбук працює від батареї.")));
             adviceSummary.Inlines.Add(new LineBreak());
-            adviceSummary.Inlines.Add(new Run(L.T(
-                "App energy is an estimate (from CPU cycles and GPU load). “Typical” is your own usual value for the app once there are 3 days on battery with it, otherwise a guideline for its category. " +
-                "“+min” is how much longer the laptop would last on a full battery.",
-                "Енергія програм — оцінка (за тактами процесора і завантаженням відеокарт). «Зазвичай» — ваша власна норма програми, коли з нею набереться 3 дні від батареї, інакше — орієнтир для її категорії. " +
-                "«+хв» — на скільки довше ноутбук пропрацював би від повної батареї.") +
-                (r.Vendor != null ? string.Format(L.T(" Laptop vendor: {0}.", " Виробник ноутбука: {0}."), r.Vendor) : "") +
+            adviceSummary.Inlines.Add(new Run((HasBattery
+                ? L.T("App energy is an estimate (from CPU cycles and GPU load). “Typical” is your own usual value for the app once there are 3 days on battery with it, otherwise a guideline for its category. " +
+                      "“+min” is how much longer the laptop would last on a full battery.",
+                      "Енергія програм — оцінка (за тактами процесора і завантаженням відеокарт). «Зазвичай» — ваша власна норма програми, коли з нею набереться 3 дні від батареї, інакше — орієнтир для її категорії. " +
+                      "«+хв» — на скільки довше ноутбук пропрацював би від повної батареї.")
+                : L.T("App energy is an estimate (from CPU cycles and GPU load). “Typical” is your own usual value for the app once there are 3 days with it, otherwise a guideline for its category.",
+                      "Енергія програм — оцінка (за тактами процесора і завантаженням відеокарт). «Зазвичай» — ваша власна норма програми, коли з нею набереться 3 дні, інакше — орієнтир для її категорії.")) +
+                (r.Vendor != null ? string.Format(HasBattery ? L.T(" Laptop vendor: {0}.", " Виробник ноутбука: {0}.") : L.T(" Vendor: {0}.", " Виробник: {0}."), r.Vendor) : "") +
                 (r.RulesNote != null ? " " + r.RulesNote : "")) { FontSize = 11 });
 
             if (r.Items.Count == 0)
@@ -136,7 +144,8 @@ namespace BatteryCheck
 
             if (r.Consumers.Count == 0)
             {
-                var none = Label(L.T("No data yet: app energy is recorded in the background while the laptop runs on battery.", "Поки немає даних: енергія програм записується у фоні, коли ноутбук працює від батареї."), 13, FontWeights.Normal, Keys.Text2);
+                var none = Label(HasBattery ? L.T("No data yet: app energy is recorded in the background while the laptop runs on battery.", "Поки немає даних: енергія програм записується у фоні, коли ноутбук працює від батареї.")
+                                            : L.T("No data yet: app energy is recorded in the background while Battery Check is running.", "Поки немає даних: енергія програм записується у фоні, поки працює Battery Check."), 13, FontWeights.Normal, Keys.Text2);
                 none.TextWrapping = TextWrapping.Wrap;
                 AddAdviceRow(new UIElement[] { none });
                 Grid.SetColumnSpan(none, 7);
@@ -194,13 +203,18 @@ namespace BatteryCheck
             quietTable.RowDefinitions.Clear();
             if (q == null || q.Minutes == 0)
             {
-                quietSummary.Text = L.T("No quiet minutes on battery yet: a quiet minute is a minute on battery without keyboard or mouse input, with process analysis on.",
+                quietSummary.Text = !HasBattery ? L.T("No quiet minutes yet: a quiet minute is a minute without keyboard or mouse input, with process analysis on.",
+                                                      "Тихих хвилин поки немає: тиха хвилина — хвилина без вводу з клавіатури й миші, з увімкненим аналізом процесів.") : L.T("No quiet minutes on battery yet: a quiet minute is a minute on battery without keyboard or mouse input, with process analysis on.",
                                         "Тихих хвилин від батареї поки немає: тиха хвилина — хвилина від батареї без вводу з клавіатури й миші, з увімкненим аналізом процесів.");
                 return;
             }
             double sum = 0;
             foreach (var kv in q.Top) sum += kv.Value;
-            quietSummary.Text = string.Format(L.T("{0} quiet minutes on battery over {1} days: the laptop used {2} on average, apps {3} of it (the rest is the screen, board, memory and the shared part of the CPU).",
+            quietSummary.Text = !HasBattery
+                ? string.Format(L.T("{0} quiet minutes over {1} days: CPU and graphics used {2} on average, apps {3} of it (the rest is the shared part of the CPU).",
+                                    "{0} тихих хвилин за {1} днів: процесор і графіка витрачали в середньому {2}, з них програми — {3} (решта — спільна частина процесора)."),
+                    q.Minutes, Advisor.Days, Fmt.W(q.BatteryW), Fmt.W(sum))
+                : string.Format(L.T("{0} quiet minutes on battery over {1} days: the laptop used {2} on average, apps {3} of it (the rest is the screen, board, memory and the shared part of the CPU).",
                                                   "{0} тихих хвилин від батареї за {1} днів: ноутбук витрачав у середньому {2}, з них програми — {3} (решта — екран, плата, пам'ять і спільна частина процесора)."),
                 q.Minutes, Advisor.Days, Fmt.W(q.BatteryW), Fmt.W(sum));
             int shown = 0;

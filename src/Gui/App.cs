@@ -46,6 +46,7 @@ namespace BatteryCheck
                 {
                     case "--no-gpu": o.Gpu = false; break;
                     case "--no-log": o.Log = false; break;
+                    case "--no-battery": o.NoBattery = true; break;  // как на ПК без аккумулятора
                     case "--background": background = true; break;
                     case "--exit": exit = true; break;
                     case "--after":  // перезапуск после обновления: дождаться выхода прежней копии, иначе она держит «один экземпляр»

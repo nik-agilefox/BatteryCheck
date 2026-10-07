@@ -13,6 +13,7 @@ namespace BatteryCheck
         public bool Gpu = true;
         public bool Log = true;
         public string LogPath;
+        public bool NoBattery;  // вести себя как настольный ПК без аккумулятора (проверка этого режима на ноутбуке)
     }
 
     /// <summary>Оценка мощности процесса (все процессы с одним именем вместе).</summary>
@@ -36,6 +37,7 @@ namespace BatteryCheck
         public string GpuName;                   // null — видеокарта NVIDIA не найдена
         public double DeepSleep10 = double.NaN;  // ядра в самом глубоком сне, % времени, сглажено за 10 с
         public bool GpuPolling;                  // опрос мощности NVIDIA включён
+        public bool HasBattery = true;           // false — ПК без аккумулятора: общей мощности нет, только процессор и видеокарты
         public double SessionS, SessionByRateWh, SessionByCapacityWh;
         public double SessionMismatchPct = double.NaN, SessionAvgW = double.NaN, SessionMinW = double.NaN, SessionMaxW = double.NaN;
         public string Error;
@@ -114,11 +116,11 @@ namespace BatteryCheck
 
         public Sampler(SamplerOptions o)
         {
-            battery = Battery.Open(0);
-            if (battery == null) throw new InvalidOperationException(L.T("Battery not found.", "Батарею не знайдено."));
+            // Без аккумулятора (настольный ПК) — работаем как «от сети»: процессор, видеокарты, процессы; общей мощности нет.
+            battery = o.NoBattery ? null : Battery.Open(0);
             try
             {
-                info = battery.QueryInfo();
+                info = battery != null ? battery.QueryInfo() : new BatteryInfo();
                 infoTime = DateTime.UtcNow;
                 rapl = new Rapl();
                 cpuIdle = new CpuIdle();
@@ -165,6 +167,15 @@ namespace BatteryCheck
 
         public string LogPath { get { return log != null ? log.FilePath : null; } }
 
+        /// <summary>Есть аккумулятор (ноутбук). Нет — настольный ПК или --no-battery; при воспроизведении лога — есть.</summary>
+        public bool HasBattery { get { return battery != null || replay != null; } }
+
+        /// <summary>
+        /// Работаем от своей энергии: ноутбук от батареи — или ПК без аккумулятора, где «от сети» — обычное состояние.
+        /// Для того, что на ноутбуке включается только от батареи: сбор по процессам для советов, режимы Eco/Subzero.
+        /// </summary>
+        public static bool SavingApplies(Snapshot s) { return s != null && (s.Sample.Battery.Discharging || !s.HasBattery); }
+
         public void ResetSession() { resetRequested = true; }
 
         /// <summary>Событие, которое может разбудить NVIDIA (смена яркости, подключение экрана) — для журнала пробуждений.</summary>
@@ -207,7 +218,7 @@ namespace BatteryCheck
         bool SampleProcesses(Sample cur)
         {
             // Видимый режим «Процессы» — раз в секунду; для рекомендаций — в фоне от батареи раз в 10 с (~0,2 % ядра).
-            bool background = backgroundProcesses && cur.Battery.Discharging && energyLog != null;
+            bool background = backgroundProcesses && (cur.Battery.Discharging || !HasBattery) && energyLog != null;  // ПК без батареи — всегда
             if (!processesEnabled && !background)
             {
                 procActive = false;
@@ -239,7 +250,7 @@ namespace BatteryCheck
             procLast = cur.TimeUtc;
             bool updated = false;
             // Энергия за окно — в лог для рекомендаций (только от батареи; окно длиннее минуты — был пропуск, не считаем).
-            bool account = energyLog != null && cur.Battery.Discharging && window <= 60;
+            bool account = energyLog != null && (cur.Battery.Discharging || !HasBattery) && window <= 60;
             string fgName = null;
             if (account)
             {
@@ -351,7 +362,9 @@ namespace BatteryCheck
 
         void ReadSensors(Sample cur, bool polling, ref string error)
         {
-            try
+            if (battery == null)
+                cur.Battery = new BatteryStatus { PowerState = 0x1, Capacity = 0xFFFFFFFF, Voltage = 0xFFFFFFFF, Rate = int.MinValue };  // «от сети», без данных
+            else try
             {
                 cur.Battery = battery.QueryStatus();
                 if ((cur.TimeUtc - infoTime).TotalSeconds >= InfoRefreshSeconds)
@@ -449,6 +462,7 @@ namespace BatteryCheck
             var s = new Snapshot();
             s.Sample = cur;
             s.Info = info;
+            s.HasBattery = HasBattery;
             s.SocPct = b.HasCapacity && info.FullChargedCapacity > 0 ? 100.0 * b.Capacity / info.FullChargedCapacity : double.NaN;
             s.BatteryAvgW = batAvg.Value;
             if (b.Discharging && b.HasCapacity) s.HoursLeft = b.Capacity / 1000.0 / batAvg.Value;

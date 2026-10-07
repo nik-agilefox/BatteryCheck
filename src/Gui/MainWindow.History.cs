@@ -73,6 +73,12 @@ namespace BatteryCheck
         {
             historyGrid.Children.Clear();
             historyGrid.RowDefinitions.Clear();
+            if (!HasBattery)
+            {
+                historySummary.Text = L.T("Discharge history needs a battery: this PC has none. App energy is in the Advice tab.",
+                                          "Історії розрядів потрібна батарея, а в цього ПК її немає. Енергія програм — у вкладці «Поради».");
+                return;
+            }
             if (list == null || list.Count == 0)
             {
                 historySummary.Text = L.T(

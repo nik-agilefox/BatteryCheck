@@ -34,6 +34,8 @@ namespace BatteryCheck
             var b = x.Battery;
             double dt = lastTrack == DateTime.MinValue ? 0 : (x.TimeUtc - lastTrack).TotalSeconds;
             lastTrack = x.TimeUtc;
+            // ПК без батареи: измеримо только то, что считают сами чипы (весь процессор с графикой + NVIDIA).
+            if (!HasBattery) return double.IsNaN(x.CpuPkgW) ? double.NaN : x.CpuPkgW + Nz(x.GpuW);
 
             if (b.Discharging)
             {
@@ -168,6 +170,24 @@ namespace BatteryCheck
 
             powerSub.Inlines.Clear();
             powerSub.ToolTip = null;
+            if (!HasBattery)
+            {
+                powerLabel.Text = L.T("CPU + graphics", "Процесор + графіка");
+                SetHero(powerValue, Fmt.Num(total, "0.0"), Fmt.WUnit);
+                AddLegendLine(theme.Cpu, L.T("CPU ", "процесор ") + Fmt.W(CpuWithoutGraphics(x.CpuPkgW, x.IgpuW)) + "   ");
+                AddLegendLine(theme.Igpu, L.T("integrated ", "вбудована ") + Fmt.W(x.IgpuW));
+                if (snap.GpuName != null)
+                {
+                    powerSub.Inlines.Add(new LineBreak());
+                    AddLegendLine(theme.Gpu, (ShortGpuName(snap.GpuName) ?? "NVIDIA") + " " + Fmt.W(x.GpuW));
+                }
+                powerSpark.Set(t, tot, null, theme.Good, x.Time, double.NaN, "5 " + Fmt.MinUnit, "", theme.Battery, theme);
+                powerSpark.ToolTip = L.T("CPU (with integrated graphics) and NVIDIA GPU over the last 5 minutes.\n" +
+                                         "The whole PC draws more: board, storage, fans and the monitor are not measured — a desktop has no sensor for that.",
+                                         "Процесор (з вбудованою графікою) і відеокарта NVIDIA за останні 5 хвилин.\n" +
+                                         "Увесь ПК споживає більше: плата, накопичувачі, вентилятори й монітор не вимірюються — у настільного ПК немає такого датчика.");
+                return;
+            }
             if (b.Discharging)
             {
                 powerLabel.Text = L.T("Power draw", "Споживання");

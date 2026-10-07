@@ -159,12 +159,13 @@ namespace BatteryCheck
                 // «остальное», без мощности на заряд аккумулятора); «остальное» от сети — последнее измеренное от батареи.
                 series = new List<ChartSeries>
                 {
-                    new ChartSeries { Name = discharging ? L.T("Total (battery, measured)", "Всього (батарея, виміряно)") : L.T("Total (AC, estimate)", "Всього (від мережі, оцінка)"), ShortName = L.T("Total", "Всього"), Color = theme.Battery, Values = history.SystemPower.ToArray() },
+                    new ChartSeries { Name = !HasBattery ? L.T("CPU + graphics", "Процесор + графіка") : discharging ? L.T("Total (battery, measured)", "Всього (батарея, виміряно)") : L.T("Total (AC, estimate)", "Всього (від мережі, оцінка)"), ShortName = L.T("Total", "Всього"), Color = theme.Battery, Values = history.SystemPower.ToArray() },
                     new ChartSeries { Name = CpuNoGraphicsText, ShortName = "CPU", Color = theme.Cpu, Values = cpu },
                     new ChartSeries { Name = L.T("Discrete: ", "Дискретна: ") + gpuName, ShortName = "dGPU", Color = theme.Gpu, Values = history.Gpu.ToArray() },
                     new ChartSeries { Name = IgpuText, ShortName = "iGPU", Color = theme.Igpu, Values = history.Igpu.ToArray() },
                     new ChartSeries { Name = discharging ? L.T("Rest (screen, board, SSD…)", "Решта (екран, плата, SSD…)") : L.T("Rest (last battery measurement)", "Решта (останній вимір від батареї)"), ShortName = L.T("Rest", "Решта"), Color = theme.Slots[4], Values = history.RestPower.ToArray() },
                 };
+                if (!HasBattery) series.RemoveAt(series.Count - 1);  // «остальное» на ПК не измерить
                 empty = L.T("Waiting for data…", "Очікування даних…");
             }
             else
@@ -323,7 +324,7 @@ namespace BatteryCheck
             socLegend = Label(L.T("Charge", "Заряд"), 12, FontWeights.Normal, Keys.Muted);
             socLegend.VerticalAlignment = VerticalAlignment.Center;
             socItem.Children.Add(socLegend);
-            legendPanel.Children.Add(socItem);
+            legendPanel.Children.Add(BatteryOnly(socItem));  // заряд на фоне графика — только у ноутбука
         }
 
         // ---------------- Таблица процессов ----------------
@@ -469,7 +470,9 @@ namespace BatteryCheck
             unattributedRow.Cpu.Text = unattributedRow.Gpu.Text = "";
 
             procNote.Text = L.T("Estimate: cores by CPU cycles, graphics by GPU load.", "Оцінка: ядра — за тактами процесора, графіка — за завантаженням відеокарт.");
-            procNote.ToolTip = lastSnap.Sample.Battery.Discharging
+            procNote.ToolTip = !HasBattery
+                ? L.T("A PC without a battery has no total draw sensor, so “Unattributed” is only the shared part of the CPU (without the board, storage and monitor).", "У ПК без батареї немає датчика загального споживання, тому «Не розподілено» — лише спільна частина процесора (без плати, накопичувачів і монітора).")
+                : lastSnap.Sample.Battery.Discharging
                 ? L.T("Rows add up to the battery power. “Unattributed” is the screen, board, storage, network and the shared part of the CPU.", "Сума рядків дорівнює потужності батареї. «Не розподілено» — екран, плата, накопичувач, мережа і спільна частина процесора.")
                 : L.T("On AC the total draw is not measured, so “Unattributed” is only the shared part of the CPU (without the screen and board).", "Від мережі загальне споживання не вимірюється, тому «Не розподілено» — лише спільна частина процесора (без екрана і плати).");
         }

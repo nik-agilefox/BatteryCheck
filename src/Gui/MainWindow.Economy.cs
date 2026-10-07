@@ -72,8 +72,8 @@ namespace BatteryCheck
             economyTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             economyTimer.Tick += (s, e) =>
             {
-                bool active = economyOn && lastSnap != null && lastSnap.Sample.Battery.Discharging;
-                UpdateGpuPreferences(active);
+                bool active = economyOn && Sampler.SavingApplies(lastSnap);  // ноутбук от батареи или ПК без неё
+                UpdateGpuPreferences(active && HasBattery);  // на ПК монитор обычно на видеокарте: перевод программ на встроенную только мешает
                 if (!active && (bgEfficiency == null || !bgEfficiency.Active)) return;
                 if (bgEfficiency == null)
                 {
@@ -119,7 +119,7 @@ namespace BatteryCheck
             if (on == applied) return;
             try
             {
-                var scheme = new ActivePowerScheme();
+                var scheme = new ActivePowerScheme(!HasBattery);  // ПК без батареи — значения «от сети»
                 Action<string, string, string> log = (id, from, to) => ProfileHost.Log("economy:" + id, from, to, ProfileLogic.ByUser);
                 if (on) Settings.SetString("SubzeroPowerSaved", MaxEconomy.Serialize(MaxEconomy.Apply(scheme, log, MaxEconomy.SubzeroSettings)));
                 else { MaxEconomy.Revert(scheme, MaxEconomy.Parse(savedText), log, MaxEconomy.SubzeroSettings); Settings.SetString("SubzeroPowerSaved", ""); }
@@ -265,7 +265,7 @@ namespace BatteryCheck
         {
             try
             {
-                var scheme = new ActivePowerScheme();
+                var scheme = new ActivePowerScheme(!HasBattery);  // ПК без батареи — значения «от сети»
                 Action<string, string, string> log = (id, from, to) => ProfileHost.Log("economy:" + id, from, to, ProfileLogic.ByUser);
                 if (on)
                 {

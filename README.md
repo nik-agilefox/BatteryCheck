@@ -20,6 +20,8 @@ A Windows laptop battery and power monitor: see where the watts go — by compon
 
 Interface in English and Ukrainian.
 
+**Desktop PCs** (no battery) work too: CPU, integrated graphics, NVIDIA GPU, per-app power, the system timer, advice and the Eco/Subzero modes. Battery tiles, history and the screen measurement are hidden, and the whole PC's draw is not shown — a desktop has no sensor for it. To try this mode on a laptop: `BatteryCheckGui.exe --no-battery`.
+
 ## Install
 
 1. Download `BatteryCheckSetup-<version>.exe` from [Releases](https://github.com/nik-agilefox/BatteryCheck/releases/latest).

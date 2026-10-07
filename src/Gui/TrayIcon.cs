@@ -187,7 +187,14 @@ namespace BatteryCheck
             // От сети — тоже число: оценка полной мощности от блока; «AC» — только если оценки нет.
             string watts = double.IsNaN(totalW) ? "AC" : Math.Min(999, Math.Round(totalW)).ToString("0");
 
-            if (b.Discharging && b.HasRate)
+            if (!snap.HasBattery)
+            {
+                text = watts;
+                tip = double.IsNaN(totalW) ? L.T("no battery", "без батареї")
+                                           : string.Format(L.T("CPU + graphics {0} W", "процесор + графіка {0} Вт"), watts);
+                color = colors.Idle;
+            }
+            else if (b.Discharging && b.HasRate)
             {
                 double w = Math.Abs(b.RateW);
                 text = Math.Min(999, Math.Round(w)).ToString("0");
