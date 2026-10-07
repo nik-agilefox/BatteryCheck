@@ -18,7 +18,7 @@ A Windows laptop battery and power monitor: see where the watts go — by compon
 - **On battery profile** — lower brightness and refresh rate, efficiency mode for chosen apps; everything is restored when you plug in.
 - **Power modes** — ⚡ Standard (nothing changed), 🍃 Eco (no CPU boost, energy saver, background apps in efficiency mode, apps moved off the discrete GPU), ❄ Subzero (Eco plus a CPU cap and stopping vendor background services, with your consent via UAC).
 
-Interface in English and Ukrainian.
+Interface in English and Ukrainian. Every feature in detail — how it measures, the limits, log formats — is in the **[full guide](docs/GUIDE.md)**.
 
 **Desktop PCs** (no battery) work too: CPU, integrated graphics, NVIDIA GPU, per-app power, the system timer, advice and the Eco/Subzero modes. Battery tiles, history and the screen measurement are hidden, and the whole PC's draw is not shown — a desktop has no sensor for it. To try this mode on a laptop: `BatteryCheckGui.exe --no-battery`.
 
