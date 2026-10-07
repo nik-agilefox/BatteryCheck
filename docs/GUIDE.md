@@ -1,6 +1,6 @@
 # Battery Check — full guide
 
-[← README](../README.md)
+**English** · [Українська](GUIDE.uk.md) · [← README](../README.md)
 
 Everything the app does, how it measures it and where the limits are. The short overview, install and build instructions are in the [README](../README.md).
 
