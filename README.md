@@ -4,6 +4,8 @@
 
 A Windows laptop battery and power monitor: see where the watts go — by component and by app — and cut idle drain. Windows 10/11, no administrator rights, nothing to install besides the app itself.
 
+![Battery Check window: power by component over the last minute, battery and discharge session](docs/screenshot.png)
+
 ## What it does
 
 - **Live power draw** — total from the battery, split into CPU, integrated graphics, NVIDIA GPU and the rest (screen, board, SSD, Wi-Fi), with a chart from 1 minute to 10 hours. The tray icon shows the current watts.
